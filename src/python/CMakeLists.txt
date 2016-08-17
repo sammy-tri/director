@@ -28,6 +28,7 @@ set(python_files
   director/debugVis.py
   director/depthimageprovider.py
   director/doordemo.py
+  director/drake-director.py
   director/drakevisualizer.py
   director/drcargs.py
   director/drilldemo.py
@@ -62,7 +63,7 @@ set(python_files
   director/lcmgl.py
   director/lcmobjectcollection.py
   director/lcmoctomap.py
-  director/lcmcollections.py  
+  director/lcmcollections.py
   director/lcmspy.py
   director/lcmUtils.py
   director/mapsregistrar.py

@@ -219,6 +219,10 @@ set(_install_targets ddApp directorPython drake-visualizer)
 add_executable(drake-visualizer drakeVisualizerApp.cpp)
 target_link_libraries(drake-visualizer ddApp)
 
+add_executable(drake-director drake-director.cpp)
+target_link_libraries(drake-director ddApp)
+list(APPEND _install_targets drake-director)
+
 if(USE_DRC)
   add_executable(director main.cpp)
   target_link_libraries(director ddApp)

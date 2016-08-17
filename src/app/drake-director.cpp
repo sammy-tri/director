@@ -18,7 +18,7 @@ int main(int argc, char **argv)
   ddPythonManager* pythonManager = new ddPythonManager;
 
   QString startupScript =
-      ddPythonManager::appSitePackagesDir() + "/director/startup.py";
+      ddPythonManager::appSitePackagesDir() + "/director/drake-director.py";
   ddMainWindow* window = new ddMainWindow(startupScript);
   window->setPythonManager(pythonManager);
   window->resize(1800, 1000);

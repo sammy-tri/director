@@ -35,8 +35,8 @@ public:
 
 
 //-----------------------------------------------------------------------------
-ddMainWindow::ddMainWindow()
-{
+ddMainWindow::ddMainWindow(const QString& startup_script)
+    : startup_script_(startup_script) {
   this->Internal = new ddInternal;
   this->Internal->setupUi(this);
 
@@ -215,8 +215,7 @@ void ddMainWindow::startup()
   this->handleCommandLineArgs();
 
   this->setupPython();
-  QString startupScript = ddPythonManager::appSitePackagesDir() + "/director/startup.py";
-  this->Internal->PythonManager->executeFile(startupScript);
+  this->Internal->PythonManager->executeFile(startup_script_);
 }
 
 //----------------------------------------------------------------------------

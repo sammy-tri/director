@@ -21,7 +21,7 @@ class DD_APP_EXPORT ddMainWindow : public QMainWindow
 
 public:
 
-  ddMainWindow();
+  ddMainWindow(const QString& startup_script);
   virtual ~ddMainWindow();
 
   ddViewManager* viewManager() const;
@@ -68,6 +68,7 @@ protected:
 
   class ddInternal;
   ddInternal* Internal;
+  QString startup_script_;
 
   Q_DISABLE_COPY(ddMainWindow);
 };
