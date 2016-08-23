@@ -1369,6 +1369,8 @@ class IKPlanner(object):
 
             self.addPose(pose, poseName)
             p = self.createPostureConstraint(poseName, robotstate.matchJoints('.*'))
+            p.jointsLowerBound = pose
+            p.jointsUpperBound = pose
             p.tspan = np.array([float(times[i]), float(times[i])])
             constraints.append(p)
             poseNames.append(poseName)
