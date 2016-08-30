@@ -652,7 +652,7 @@ class EndEffectorTeleopPanel(object):
 
             om.removeFromObjectModel(om.findObjectByName(frameName))
             frame = vis.showFrame(graspToWorld, frameName, parent=folder, scale=0.2)
-            #frame.setProperty('Edit', True)
+            frame.setProperty('Edit', True)
             frame.connectFrameModified(self.onGoalFrameModified)
             #addHandMesh(handModels[side], frame)
 

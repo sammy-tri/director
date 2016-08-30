@@ -205,6 +205,8 @@ class PositionConstraint(ConstraintBase):
 
     def __init__(self, **kwargs):
 
+        object.__setattr__(self, "_referenceFrame", None)
+
         self._add_fields(
             linkName = '',
             referenceFrame = vtk.vtkTransform(),
@@ -216,6 +218,25 @@ class PositionConstraint(ConstraintBase):
             )
 
         ConstraintBase.__init__(self, **kwargs)
+
+    @property
+    def referenceFrame(self):
+        return self._referenceFrame
+
+    @referenceFrame.setter
+    def referenceFrame(self, value):
+        if (isinstance(self._referenceFrame, vtk.vtkTransform) and not
+            isinstance(value, vtk.vtkTransform)):
+
+            t = vtk.vtkTransform()
+            t.PostMultiply()
+            t.RotateX(value[3])
+            t.RotateY(value[4])
+            t.RotateZ(value[5])
+            t.Translate(value[0], value[1], value[2])
+            self._referenceFrame.DeepCopy(t)
+        else:
+            self._referenceFrame = value
 
     def _getCommands(self, commands, constraintNames, suffix):
 
@@ -433,7 +454,8 @@ class QuatConstraint(ConstraintBase):
         # constraint is edited in the model browser (this probably
         # true for some other constraints as well).
         return drakeik.WorldQuatConstraint(
-            model, int(model.FindBodyIndex(str(self.linkName))), quat,
+            model, int(model.FindBodyIndex(str(self.linkName))),
+            _np_float_array(quat),
             math.radians(self.angleToleranceInDegrees),
             _np_float_array(self.tspan))
 
