@@ -4,15 +4,14 @@ import math
 import time
 import numpy as np
 
+import drake as lcmdrake
+
 from director import callbacks
 from director import transformUtils
 from director import lcmUtils
 from director import objectmodel as om
 from director.utime import getUtime
 from director import robotstate
-
-import drc as lcmdrc
-
 
 
 class ManipulationPlanItem(om.ObjectModelItem):
@@ -26,8 +25,8 @@ class ManipulationPlanDriver(object):
     USE_SUPPORTS = 'USE_SUPPORTS'
 
     def __init__(self, ikPlanner):
-        lcmUtils.addSubscriber('CANDIDATE_MANIP_PLAN', lcmdrc.robot_plan_w_keyframes_t, self.onManipPlan)
-        lcmUtils.addSubscriber('CANDIDATE_ROBOT_PLAN_WITH_SUPPORTS',lcmdrc.robot_plan_with_supports_t, self.onManipPlan)
+        lcmUtils.addSubscriber('CANDIDATE_MANIP_PLAN', lcmdrake.robot_plan_w_keyframes_t, self.onManipPlan)
+        lcmUtils.addSubscriber('CANDIDATE_ROBOT_PLAN_WITH_SUPPORTS',lcmdrake.robot_plan_with_supports_t, self.onManipPlan)
         self.lastManipPlan = None
         self.committedPlans = []
         self.callbacks = callbacks.CallbackRegistry([self.PLAN_RECEIVED,
@@ -48,7 +47,7 @@ class ManipulationPlanDriver(object):
 
 
     def convertKeyframePlan(self, keyframeMsg):
-        msg = lcmdrc.robot_plan_t()
+        msg = lcmdrake.robot_plan_t()
         msg.utime = keyframeMsg.utime
         msg.robot_name = keyframeMsg.robot_name
         msg.num_states = keyframeMsg.num_states
@@ -67,7 +66,7 @@ class ManipulationPlanDriver(object):
 
     def convertPlanToPlanWithSupports(self, planMsg, supports, ts, isQuasistatic):
         assert(len(supports) == len(ts))
-        msg = lcmdrc.robot_plan_with_supports_t()
+        msg = lcmdrake.robot_plan_with_supports_t()
         msg.utime = planMsg.utime
         msg.plan = planMsg
         msg.support_sequence.utime = planMsg.utime
@@ -82,7 +81,7 @@ class ManipulationPlanDriver(object):
     def getSupportLCMFromListOfSupports(self, supportsList,ts):
         supports = [0]*len(ts)
         for i in xrange(len(ts)):
-            supportElement = lcmdrc.support_element_t()
+            supportElement = lcmdrake.support_element_t()
             supportElement.utime = getUtime()
             numBodies = len(supportsList[i])
             supportElement.num_bodies = numBodies
@@ -111,7 +110,7 @@ class ManipulationPlanDriver(object):
 
     def getSupports(self):
         if self.publishPlansWithSupports:
-            supportElement = lcmdrc.support_element_t()
+            supportElement = lcmdrake.support_element_t()
             supportElement.utime = getUtime()
             numBodies = 0
             supportBodies = []
@@ -140,7 +139,7 @@ class ManipulationPlanDriver(object):
 
     def getPelvisSupportBodyMsg(self):
         linkname = 'pelvis'
-        supportBody = lcmdrc.support_body_t()
+        supportBody = lcmdrake.support_body_t()
         supportBody.utime = getUtime()
         supportBody.body_id = int(self.ikPlanner.ikServer.comm.getFloatArray('links.%s' % linkname)[0])
         supportBody.contact_pts = np.array(self.ikPlanner.ikServer.comm.getFloatArray('pelvis_pts(:)')).reshape((3,-1), order='F')
@@ -151,7 +150,7 @@ class ManipulationPlanDriver(object):
 
     def getFootSupportBodyMsg(self, side):
         linkname = 'l_foot' if side == 'left' else 'r_foot'
-        supportBody = lcmdrc.support_body_t()
+        supportBody = lcmdrake.support_body_t()
         supportBody.utime = getUtime()
         supportBody.body_id = int(self.ikPlanner.ikServer.comm.getFloatArray('links.%s' % linkname)[0])
         supportBody.contact_pts = np.array(self.ikPlanner.ikServer.comm.getFloatArray('%s_pts(:)' % linkname)).reshape((3,-1), order='F')
@@ -162,7 +161,7 @@ class ManipulationPlanDriver(object):
 
     def getHandSupportBodyMsg(self, side, support_surface):
         linkname = 'l_hand' if side == 'left' else 'r_hand'
-        supportBody = lcmdrc.support_body_t()
+        supportBody = lcmdrake.support_body_t()
         supportBody.utime = getUtime()
         supportBody.body_id = int(self.ikPlanner.ikServer.comm.getFloatArray('links.%s' % linkname)[0])
         supportBody.contact_pts = self.ikPlanner.getPalmPoint(side=side).reshape(3,1)
@@ -184,7 +183,7 @@ class ManipulationPlanDriver(object):
 
         self.committedPlans.append(manipPlan)
 
-        if isinstance(manipPlan, lcmdrc.robot_plan_w_keyframes_t):
+        if isinstance(manipPlan, lcmdrake.robot_plan_w_keyframes_t):
             manipPlan = self.convertKeyframePlan(manipPlan)
             supports = self.getSupports()
             if supports is not None:
@@ -192,7 +191,7 @@ class ManipulationPlanDriver(object):
                                                                self.plansWithSupportsAreQuasistatic)
         manipPlan.utime = getUtime()
 
-        channelMap = {lcmdrc.robot_plan_with_supports_t:'COMMITTED_ROBOT_PLAN_WITH_SUPPORTS'}
+        channelMap = {lcmdrake.robot_plan_with_supports_t:'COMMITTED_ROBOT_PLAN_WITH_SUPPORTS'}
         defaultChannel = 'COMMITTED_ROBOT_PLAN'
         channel = channelMap.get(type(manipPlan), defaultChannel)
         lcmUtils.publish(channel, manipPlan)
@@ -200,9 +199,9 @@ class ManipulationPlanDriver(object):
 
 
     def sendPlanPause(self):
-        msg = lcmdrc.plan_control_t()
+        msg = lcmdrake.plan_control_t()
         msg.utime = getUtime()
-        msg.control = lcmdrc.plan_control_t.PAUSE
+        msg.control = lcmdrake.plan_control_t.PAUSE
         lcmUtils.publish('COMMITTED_PLAN_PAUSE', msg)
 
     def connectPlanReceived(self, func):
@@ -219,4 +218,3 @@ class ManipulationPlanDriver(object):
 
     def disconnectPlanCommitted(self, callbackId):
         self.callbacks.disconnect(callbackId)
-

@@ -1,4 +1,4 @@
-import drc as lcmdrc
+import drake as lcmdrake
 import bot_core
 import numpy as np
 import time
@@ -88,7 +88,7 @@ def atlasCommandToDrakePose(msg):
 
 
 def asRobotPlan(msg):
-    if isinstance(msg, lcmdrc.robot_plan_with_supports_t):
+    if isinstance(msg, lcmdrake.robot_plan_with_supports_t):
         return msg.plan
     return msg
 

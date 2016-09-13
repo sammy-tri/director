@@ -20,13 +20,12 @@ from director.simpletimer import SimpleTimer
 from director.utime import getUtime
 from director import robotstate
 from director import planplayback
-from director import segmentation
 from director import drcargs
 
 from director import ikconstraints
 from director.ikparameters import IkParameters
 
-import drc as lcmdrc
+import drake as lcmdrake
 import bot_core as lcmbotcore
 import json
 
@@ -98,7 +97,7 @@ class ConstraintSet(object):
 
     def onFrameModified(self, frame):
         self.runIk()
-    
+
     def searchFinalPose(self, side, eeTransform):
         nominalPoseName = self.nominalPoseName
         if not nominalPoseName:
@@ -257,7 +256,7 @@ class IKPlanner(object):
         om.addToObjectModel(IkOptionsItem(ikServer, self), parentObj=om.getOrCreateContainer('planning'))
 
         self.jointGroups = drcargs.getDirectorConfig()['teleopJointGroups']
-        
+
         if 'kneeJoints' in drcargs.getDirectorConfig():
             self.kneeJoints = drcargs.getDirectorConfig()['kneeJoints']
 
@@ -272,7 +271,7 @@ class IKPlanner(object):
 
         if 'pelvisLink' in drcargs.getDirectorConfig():
             self.pelvisLink = drcargs.getDirectorConfig()['pelvisLink']
-        
+
         if 'leftFootLink' in drcargs.getDirectorConfig():
             self.leftFootLink =  drcargs.getDirectorConfig()['leftFootLink']
             self.rightFootLink = drcargs.getDirectorConfig()['rightFootLink']
@@ -1406,14 +1405,14 @@ class IKPlanner(object):
 
     def getManipPlanListener(self):
         responseChannel = 'CANDIDATE_MANIP_PLAN'
-        responseMessageClass = lcmdrc.robot_plan_w_keyframes_t
+        responseMessageClass = lcmdrake.robot_plan_w_keyframes_t
         return lcmUtils.MessageResponseHelper(responseChannel, responseMessageClass)
 
     def getManipIKListener(self):
+        print "Manipulation IK listener disabled."
         responseChannel = 'CANDIDATE_MANIP_IKPLAN'
-        responseMessageClass = lcmdrc.robot_plan_w_keyframes_t
+        responseMessageClass = lcmdrake.robot_plan_w_keyframes_t
         return lcmUtils.MessageResponseHelper(responseChannel, responseMessageClass)
-
 
     def onPostureGoalMessage(self, stateJointController, msg):
 
@@ -1458,7 +1457,7 @@ class IKPlanner(object):
             listener.finish()
 
         print 'traj info:', info
-        return self.lastManipPlan        
+        return self.lastManipPlan
 
 
     def computePostureCost(self, pose):
@@ -1490,7 +1489,7 @@ class IKPlanner(object):
 
         print 'traj info:', info
         return self.lastManipPlan
-        
+
     def createDistanceToGoalConstraint(self, side, distance):
         graspFrame = self.getPalmToHandLink(side)
         t = vtk.vtkTransform()
