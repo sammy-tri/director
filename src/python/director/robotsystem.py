@@ -1,34 +1,22 @@
-from director import irisdriver
 from director import applogic
 from director import vtkAll as vtk
 from director import callbacks
 from director.fieldcontainer import FieldContainer
 from director import ik
 from director import ikplanner
-from director import raycastdriver
 from director import objectmodel as om
-from director import perception
-from director import segmentation
-from director import segmentationroutines
 from director import robotstate
 from director import roboturdf
-from director import footstepsdriver
 from director import drcargs
-from director import atlasdriver
-from director import affordanceitems
-from director import affordancemanager
+
 from director import robotplanlistener
-from director import handdriver
 from director import planplayback
 from director import playbackpanel
 from director import teleoppanel
-from director import robotviewbehaviors
-from director import plannerPublisher
 
-
-def create(view=None, globalsDict=None):
+def create(*args, **kwargs):
     s = RobotSystem()
-    return s.init(view, globalsDict)
+    return s.init(*args, **kwargs)
 
 
 class RobotSystem(object):
@@ -38,16 +26,20 @@ class RobotSystem(object):
         pass
 
 
-    def init(self, view=None, globalsDict=None):
+    def init(self, view=None, globalsDict=None,
+             useFootsteps=True,
+             usePerception=True,
+             useSegmentation=True,
+             useAffordance=True,
+             useAtlasDriver=True,
+             useExotica=True,
+             useHands=True):
 
         view = view or applogic.getCurrentRenderView()
 
         useRobotState = True
-        usePerception = True
-        useFootsteps = True
-        useHands = True
+
         usePlanning = True
-        useAtlasDriver = True
         useAtlasConvexHull = False
         useWidgets = False
 
@@ -61,6 +53,7 @@ class RobotSystem(object):
 
 
         if useAtlasDriver:
+            from director import atlasdriver
             atlasDriver = atlasdriver.init(None)
 
 
@@ -69,10 +62,13 @@ class RobotSystem(object):
             robotStateJointController.setPose('EST_ROBOT_STATE', robotStateJointController.getPose('q_nom'))
             roboturdf.startModelPublisherListener([(robotStateModel, robotStateJointController)])
             robotStateJointController.addLCMUpdater('EST_ROBOT_STATE')
-            segmentationroutines.SegmentationContext.initWithRobot(robotStateModel)
+            if useSegmentation:
+                from director import segmentationroutines
+                segmentationroutines.SegmentationContext.initWithRobot(robotStateModel)
 
 
         if usePerception:
+            from director import perception
             multisenseDriver, mapServerSource = perception.init(view)
 
             def getNeckPitch():
@@ -90,16 +86,22 @@ class RobotSystem(object):
             robotStateModel.connectModelChanged(spindleMonitor.onRobotStateChanged)
 
 
-
         if useHands:
+            from director import handdriver
             rHandDriver = handdriver.RobotiqHandDriver(side='right')
             lHandDriver = handdriver.RobotiqHandDriver(side='left')
 
 
         if useFootsteps:
+            from director import footstepsdriver
+            from director import irisdriver
+            from director import raycastdriver
+
             footstepsDriver = footstepsdriver.FootstepsDriver(robotStateJointController)
             irisDriver = irisdriver.IRISDriver(robotStateJointController, footstepsDriver.params)
             raycastDriver = raycastdriver.RaycastDriver()
+        else:
+            footstepsDriver = None
 
         if usePlanning:
 
@@ -142,14 +144,24 @@ class RobotSystem(object):
 
             manipPlanner = robotplanlistener.ManipulationPlanDriver(ikPlanner)
 
-            affordanceManager = affordancemanager.AffordanceObjectModelManager(view)
-            affordanceitems.MeshAffordanceItem.getMeshManager().initLCM()
-            affordanceitems.MeshAffordanceItem.getMeshManager().collection.sendEchoRequest()
-            affordanceManager.collection.sendEchoRequest()
-            segmentation.affordanceManager = affordanceManager
+            if useAffordance:
+                from director import affordanceitems
+                from director import affordancemanager
 
-            plannerPub = plannerPublisher.PlannerPublisher(ikPlanner,affordanceManager,ikRobotModel)
-            ikPlanner.setPublisher(plannerPub)
+                affordanceManager = affordancemanager.AffordanceObjectModelManager(view)
+                affordanceitems.MeshAffordanceItem.getMeshManager().initLCM()
+                affordanceitems.MeshAffordanceItem.getMeshManager().collection.sendEchoRequest()
+                affordanceManager.collection.sendEchoRequest()
+                if useSegmentation:
+                    from director import segmentation
+                    segmentation.affordanceManager = affordanceManager
+            else:
+                affordanceManager = None
+
+            if useExotica:
+                from director import plannerPublisher
+                plannerPub = plannerPublisher.PlannerPublisher(ikPlanner,affordanceManager,ikRobotModel)
+                ikPlanner.setPublisher(plannerPub)
 
             # This joint angle is mapped to the Multisense panel
             neckPitchJoint = ikPlanner.neckPitchJoint
@@ -167,7 +179,8 @@ class RobotSystem(object):
             teleopPanel = teleoppanel.TeleopPanel(robotStateModel, robotStateJointController, teleopRobotModel, teleopJointController,
                              ikPlanner, manipPlanner, playbackPanel.setPlan, playbackPanel.hidePlan)
 
-            footstepsDriver.walkingPlanCallback = playbackPanel.setPlan
+            if useFootsteps:
+                footstepsDriver.walkingPlanCallback = playbackPanel.setPlan
             manipPlanner.connectPlanReceived(playbackPanel.setPlan)
 
         viewBehaviors = None
@@ -181,8 +194,8 @@ class RobotSystem(object):
 
         robotSystem = FieldContainer(**robotSystemArgs)
 
-        robotSystem.viewBehaviors = robotviewbehaviors.RobotViewBehaviors(view, robotSystem)
+        if useFootsteps and useSegmentation:
+            from director import robotviewbehaviors
+            robotSystem.viewBehaviors = robotviewbehaviors.RobotViewBehaviors(view, robotSystem)
 
         return robotSystem
-
-

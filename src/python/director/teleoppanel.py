@@ -8,14 +8,12 @@ from director import visualization as vis
 from director import transformUtils
 from director import ikconstraints
 from director import ikplanner
-from director import footstepsdriver
 from director import vtkAll as vtk
 from director import drcargs
 from director import affordanceurdf
 from director.roboturdf import HandFactory
 from director.utime import getUtime
 from director import lcmUtils
-import drc as lcmdrc
 
 import functools
 import math
@@ -102,7 +100,7 @@ class EndEffectorTeleopPanel(object):
         self.palmOffsetDistance = 0.0
         self.palmGazeAxis = [0.0, 1.0, 0.0]
         self.constraintSet = None
-        
+
         lcmUtils.addSubscriber('CANDIDATE_ROBOT_ENDPOSE', lcmbotcore.robot_state_t, self.onCandidateEndPose)
 
         #self.ui.interactiveCheckbox.visible = False
@@ -338,6 +336,9 @@ class EndEffectorTeleopPanel(object):
 
 
     def updateCollisionEnvironment(self):
+        if self.panel.affordanceManager is None:
+            return
+
         affs = self.panel.affordanceManager.getCollisionAffordances()
         if not affs:
             self.panel.ikPlanner.ikServer.clearEnvironment()
@@ -352,7 +353,7 @@ class EndEffectorTeleopPanel(object):
         self.generatePlan()
 
     def generatePlan(self):
-        
+
         self.updateConstraints()
         if not self.ui.interactiveCheckbox.checked:
             self.updateIk()
@@ -695,7 +696,7 @@ class EndEffectorTeleopPanel(object):
         self.reachSide = side
         self.activate()
         return self.updateGoalFrame(self.panel.ikPlanner.getHandLink(side), frame)
-        
+
     def finalPosePlanningChanged(self):
         if self.getCheckboxState(self.ui.finalPosePlanningOptions):
             self.setCheckboxState(self.ui.eeTeleopButton, False)
@@ -746,8 +747,8 @@ class EndEffectorTeleopPanel(object):
         handFactory = HandFactory(self.panel.teleopRobotModel)
         handFactory.placeHandModelWithTransform(t, self.panel.teleopRobotModel.views[0],
                                                 self.getFinalPoseGraspingHand(), 'Final Pose End Effector', 'planning')
-        
-        
+
+
     def terminateFinalPosePlanning(self):
         finalPoseEE = om.findObjectByName('Final Pose End Effector')
         om.removeFromObjectModel(finalPoseEE)
@@ -771,7 +772,7 @@ class EndEffectorTeleopPanel(object):
         if info == 1:
             self.panel.showPose(self.constraintSet.endPose)
         app.displaySnoptInfo(info)
-    
+
     def onCandidateEndPose(self, msg):
         if not self.getCheckboxState(self.ui.finalPosePlanningOptions) and not self.ui.eeTeleopButton.checked:
             pose = robotstate.convertStateMessageToDrakePose(msg)
@@ -894,7 +895,8 @@ class JointLimitChecker(object):
 
         # update limits on server
         panel.ikPlanner.ikServer.updateJointLimits(limitData)
-        panel.ikPlanner.plannerPub.updateJointLimits(limitData)
+        if panel.ikPlanner.plannerPub is not None:
+            panel.ikPlanner.plannerPub.updateJointLimits(limitData)
 
         # update limits on checker
         for jointName, epsilon, jointPosition in limitData:
@@ -1216,8 +1218,8 @@ class JointTeleopPanel(object):
         return self.slidersMap[jointName]
 
     def computeBaseJointOffsets(self):
-
-        baseReferenceFrame = footstepsdriver.FootstepsDriver.getFeetMidPoint(self.panel.ikPlanner.getRobotModelAtPose(self.startPose))
+        baseReferenceFrame = self.panel.footstepsDriver.getFeetMidPoint(
+            self.panel.ikPlanner.getRobotModelAtPose(self.startPose))
         baseReferenceWorldPos = np.array(baseReferenceFrame.GetPosition())
         baseReferenceWorldYaw = math.radians(baseReferenceFrame.GetOrientation()[2])
 
@@ -1325,7 +1327,7 @@ class JointTeleopPanel(object):
 
 class TeleopPanel(object):
 
-    def __init__(self, robotStateModel, robotStateJointController, teleopRobotModel, teleopJointController, ikPlanner, manipPlanner, affordanceManager, showPlanFunction, hidePlanFunction, planningUtils):
+    def __init__(self, robotStateModel, robotStateJointController, teleopRobotModel, teleopJointController, ikPlanner, manipPlanner, affordanceManager, showPlanFunction, hidePlanFunction, planningUtils, footstepsDriver):
 
         self.robotStateModel = robotStateModel
         self.robotStateJointController = robotStateJointController
@@ -1337,6 +1339,7 @@ class TeleopPanel(object):
         self.showPlanFunction = showPlanFunction
         self.hidePlanFunction = hidePlanFunction
         self.planningUtils = planningUtils
+        self.footstepsDriver = footstepsDriver
 
         manipPlanner.connectPlanCommitted(self.onPlanCommitted)
 
@@ -1434,12 +1437,12 @@ def _getAction():
     return app.getToolBarActions()['ActionTeleopPanel']
 
 
-def init(robotStateModel, robotStateJointController, teleopRobotModel, teleopJointController, debrisPlanner, manipPlanner, affordanceManager, showPlanFunction, hidePlanFunction, planningUtils):
+def init(robotStateModel, robotStateJointController, teleopRobotModel, teleopJointController, debrisPlanner, manipPlanner, affordanceManager, showPlanFunction, hidePlanFunction, planningUtils, footstepsDriver):
 
     global panel
     global dock
 
-    panel = TeleopPanel(robotStateModel, robotStateJointController, teleopRobotModel, teleopJointController, debrisPlanner, manipPlanner, affordanceManager, showPlanFunction, hidePlanFunction, planningUtils)
+    panel = TeleopPanel(robotStateModel, robotStateJointController, teleopRobotModel, teleopJointController, debrisPlanner, manipPlanner, affordanceManager, showPlanFunction, hidePlanFunction, planningUtils, footstepsDriver)
     dock = app.addWidgetToDock(panel.widget, action=_getAction())
     dock.hide()
 

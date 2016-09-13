@@ -5,9 +5,14 @@ import sys
 import json
 import time
 import os
-import drc as lcmdrc
+
+# TODO(sam.creasey) Re-enable or remove this.  It's currently only
+# preventing sending EE_TRAJ_GOAL, which doesn't obviously have any
+# consumers.  The real fix would be to move behavior_command_t into
+# bot_core.
+#
+#import drc as lcmdrc
 import bot_core as lcmbotcore
-import atlas
 import functools
 
 # allow control-c to kill the program
@@ -289,11 +294,11 @@ def publishPostureGoal(joints, postureName, channel='POSTURE_GOAL'):
 
 def publishTrajGoal(name, channel=''):
 
-    msg = lcmdrc.behavior_command_t()
-    msg.utime = getUtime()
-    msg.command = name
-    lcmWrapper.publish('EE_TRAJ_GOAL', msg)
-
+    # msg = lcmdrc.behavior_command_t()
+    # msg.utime = getUtime()
+    # msg.command = name
+    # lcmWrapper.publish('EE_TRAJ_GOAL', msg)
+    print "Would have published EE_TRAJ_GOAL: ", name
     publishSystemStatus('sending EE traj goal: ' + name)
 
 
