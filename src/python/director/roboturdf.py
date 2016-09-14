@@ -211,7 +211,11 @@ def loadRobotModel(name, view=None, parent='planning', urdfFile=None, color=None
     jointController = jointcontrol.JointController([obj])
 
     fixedPointFile = drcargs.getDirectorConfig()['fixedPointFile']
-    jointController.setPose('q_nom', jointController.loadPoseFromFile(fixedPointFile))
+    if len(fixedPointFile):
+        jointController.setPose(
+            'q_nom', jointController.loadPoseFromFile(fixedPointFile))
+    else:
+        jointController.setPose('q_nom', model.getJointPositions())
 
     return obj, jointController
 
