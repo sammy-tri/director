@@ -173,10 +173,11 @@ vtkSmartPointer<vtkPolyData> transformPolyData(vtkPolyData* polyData, vtkTransfo
   return shallowCopy(transformFilter->GetOutput());
 }
 
-vtkSmartPointer<vtkPolyData> scalePolyData(vtkPolyData* polyData, double scale)
+vtkSmartPointer<vtkPolyData> scalePolyData(vtkPolyData* polyData,
+                                           const Eigen::Vector3d& scale)
 {
   vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
-  t->Scale(scale, scale, scale);
+  t->Scale(scale(0), scale(1), scale(2));
   return transformPolyData(polyData, t);
 }
 
@@ -452,7 +453,7 @@ class URDFRigidBodyTreeVTK : public RigidBodyTree
 {
 public:
 
-  typedef std::map<std::shared_ptr<RigidBody>, std::vector<ddMeshVisual::Ptr> > MeshMapType;
+  typedef std::map<const RigidBody*, std::vector<ddMeshVisual::Ptr> > MeshMapType;
 
   std::shared_ptr<KinematicsCache<double> > cache;
 
@@ -473,27 +474,23 @@ public:
 
     RigidBodyTree* model = this;
 
-    const std::shared_ptr<RigidBody> worldBody = model->bodies[0];
-
-    for (size_t bodyIndex = 0; bodyIndex < model->bodies.size(); ++bodyIndex)
-    {
-
-      std::shared_ptr<RigidBody> body = model->bodies[bodyIndex];
-
+    const RigidBody& worldBody = model->world();
+    for (const RigidBody* body : model->FindModelInstanceBodies(
+             worldBody.get_model_instance_id())) {
       if (!body->hasParent())
       {
         continue;
       }
-      
+
       if (body->getJoint().getNumPositions() == 0)
       {
         fixedDOFs.insert(body->getJoint().getName());
         continue;
       }
 
-      int dofId = body->position_num_start;
+      int dofId = body->get_position_start_index();
 
-      if (body->parent == worldBody)
+      if (body->has_as_parent(worldBody))
       {
         //printf("dofMap base\n");
 
@@ -560,7 +557,8 @@ public:
     }
     else
     {
-      fname = root_dir + "/" + meshFilename;
+      //fname = root_dir + "/" + meshFilename;
+      fname = meshFilename;
     }
 
     if (!boost::filesystem::exists(fname))
@@ -609,19 +607,16 @@ public:
     //printf("load visuals...\n");
     RigidBodyTree* model = this;
 
-    for (size_t bodyIndex = 0; bodyIndex < model->bodies.size(); ++bodyIndex)
-    {
-
-      std::shared_ptr<RigidBody> body = model->bodies[bodyIndex];
-
+    for (const RigidBody* body : model->FindModelInstanceBodies(
+             model->world().get_model_instance_id())) {
       //printf("body: %s\n", body->linkname.c_str());
 
-      for (size_t visualIndex = 0 ; visualIndex < body->visual_elements.size(); ++visualIndex)
+      const auto& visual_elements = body->get_visual_elements();
+      for (size_t visualIndex = 0 ; visualIndex < visual_elements.size(); ++visualIndex)
       {
         //printf("vi %d\n", visualIndex);
 
-        const DrakeShapes::VisualElement& visual = body->visual_elements[visualIndex];
-
+        const DrakeShapes::VisualElement& visual = visual_elements[visualIndex];
         const DrakeShapes::Shape visualType = visual.getShape();
 
         //printf("shape: %d\n", visualType);
@@ -634,20 +629,20 @@ public:
 
           const DrakeShapes::Mesh& mesh = static_cast<const DrakeShapes::Mesh&>(visual.getGeometry());
 
-          std::string filename = locateMeshFile(mesh.filename, root_dir);
+          std::string filename = locateMeshFile(mesh.resolved_filename_, root_dir);
           if (filename.size())
           {
             //printf("loading mesh: %s\n", filename.c_str());
             loadedVisuals = loadMeshVisuals(filename);
           }
 
-          if (mesh.scale != 1.0)
+          if (mesh.scale_ != Eigen::Vector3d::Constant(1.0))
           {
 
             for (size_t mvi = 0; mvi < loadedVisuals.size(); ++mvi)
             {
               ddMeshVisual::Ptr meshVisual = loadedVisuals[mvi];
-              meshVisual->PolyData->ShallowCopy(scalePolyData(meshVisual->PolyData, mesh.scale));
+              meshVisual->PolyData->ShallowCopy(scalePolyData(meshVisual->PolyData, mesh.scale_));
             }
           }
 
@@ -681,7 +676,7 @@ public:
 
           meshVisual->VisualToLink = makeTransform(visual.getLocalTransform());
 
-          meshVisual->Name = body->linkname;
+          meshVisual->Name = body->get_name();
           meshMap[body].push_back(meshVisual);
 
           meshVisual->Color = QColor(visual.getMaterial()[0]*255, visual.getMaterial()[1]*255, visual.getMaterial()[2]*255);
@@ -702,20 +697,15 @@ public:
   {
     RigidBodyTree* model = this;
 
-
-
-    for (size_t bodyIndex = 0; bodyIndex < model->bodies.size(); ++bodyIndex)
-    {
-
-      std::shared_ptr<RigidBody> body = model->bodies[bodyIndex];
-
+    for (const RigidBody* body : model->FindModelInstanceBodies(
+             model->world().get_model_instance_id())) {
       MeshMapType::iterator itr = meshMap.find(body);
       if (itr == this->meshMap.end())
       {
         continue;
       }
 
-      vtkSmartPointer<vtkTransform> linkToWorld = makeTransform(relativeTransform(*cache, 0, body->body_index));
+      vtkSmartPointer<vtkTransform> linkToWorld = makeTransform(relativeTransform(*cache, 0, body->get_body_index()));
 
       //printf("%s to world: %f %f %f\n", body->linkname.c_str(), translation(0), translation(1), translation(2));
 
@@ -744,13 +734,11 @@ public:
 
     RigidBodyTree* model = this;
 
-    for (size_t bodyIndex = 0; bodyIndex < model->bodies.size(); ++bodyIndex)
-    {
-      std::shared_ptr<RigidBody> body = model->bodies[bodyIndex];
-
-      if (body->linkname.size())
+    for (const RigidBody* body : model->FindModelInstanceBodies(
+             model->world().get_model_instance_id())) {
+      if (body->get_name().size())
       {
-        linkMap[body->linkname.c_str()] = body->body_index;
+        linkMap[body->get_name().c_str()] = body->get_body_index();
       }
     }
 
@@ -806,7 +794,7 @@ URDFRigidBodyTreeVTK::Ptr loadVTKModelFromFile(const string &urdf_filename)
     }
 
     boost::filesystem::path mypath(urdf_filename);
-    if (!mypath.empty() && mypath.has_parent_path())  
+    if (!mypath.empty() && mypath.has_parent_path())
       pathname = mypath.parent_path().native();
 
     model->addRobotFromURDFString(xml_string, PackageSearchPaths, pathname);
@@ -888,7 +876,7 @@ int ddDrakeModel::numberOfJoints()
     return 0;
   }
 
-  return this->Internal->Model->num_positions;
+  return this->Internal->Model->number_of_positions();
 }
 
 //-----------------------------------------------------------------------------
@@ -910,7 +898,7 @@ void ddDrakeModel::setJointPositions(const QVector<double>& jointPositions, cons
     return;
   }
 
-  if (this->Internal->JointPositions.size() != model->num_positions)
+  if (this->Internal->JointPositions.size() != model->number_of_positions())
   {
     std::cout << "Internal joint positions vector has inconsistent size." << std::endl;
     return;
@@ -951,15 +939,15 @@ void ddDrakeModel::setJointPositions(const QVector<double>& jointPositions)
     return;
   }
 
-  if (jointPositions.size() != model->num_positions)
+  if (jointPositions.size() != model->number_of_positions())
   {
     std::cout << "ddDrakeModel::setJointPositions(): input jointPositions size "
-              << jointPositions.size() << " != " << model->num_positions << std::endl;
+              << jointPositions.size() << " != " << model->number_of_positions() << std::endl;
     return;
   }
 
-  VectorXd q = VectorXd::Zero(model->num_positions);
-  VectorXd v = VectorXd::Zero(model->num_velocities);
+  VectorXd q = VectorXd::Zero(model->number_of_positions());
+  VectorXd v = VectorXd::Zero(model->number_of_velocities());
   for (int i = 0; i < jointPositions.size(); ++i)
   {
     q(i) = jointPositions[i];
@@ -992,7 +980,7 @@ QVector<double> ddDrakeModel::getJointPositions(const QList<QString>& jointNames
     return ret;
   }
 
-  if (this->Internal->JointPositions.size() != model->num_positions)
+  if (this->Internal->JointPositions.size() != model->number_of_positions())
   {
     std::cout << "Internal joint positions vector has inconsistent size." << std::endl;
     return ret;
@@ -1038,14 +1026,14 @@ QVector<double> ddDrakeModel::getBodyContactPoints(const QString& bodyName) cons
   QVector<double> ret;
   URDFRigidBodyTreeVTK::Ptr model = this->Internal->Model;
 
-  for (size_t bodyIndex = 0; bodyIndex < model->bodies.size(); ++bodyIndex)
-  {
-    std::shared_ptr<RigidBody> body = model->bodies[bodyIndex];
-    if (body->linkname.c_str() == bodyName)
+  for (const RigidBody* body : model->FindModelInstanceBodies(
+           model->world().get_model_instance_id())) {
+    if (body->get_name().c_str() == bodyName)
     {
-      for (size_t i = 0; i < body->contact_pts.cols(); ++i)
+      const auto& contact_pts = body->get_contact_points();
+      for (size_t i = 0; i < contact_pts.cols(); ++i)
       {
-        ret << body->contact_pts(0,i) << body->contact_pts(1,i) << body->contact_pts(2,i);
+        ret << contact_pts(0,i) << contact_pts(1,i) << contact_pts(2,i);
       }
     }
   }
@@ -1166,7 +1154,7 @@ bool ddDrakeModel::loadFromFile(const QString& filename)
   this->Internal->FileName = filename;
   this->Internal->Model = model;
 
-  this->setJointPositions(QVector<double>(model->num_positions, 0.0));
+  this->setJointPositions(QVector<double>(model->number_of_positions(), 0.0));
   return true;
 }
 
@@ -1182,7 +1170,7 @@ bool ddDrakeModel::loadFromXML(const QString& xmlString)
   this->Internal->FileName = "<xml string>";
   this->Internal->Model = model;
 
-  this->setJointPositions(QVector<double>(model->num_positions, 0.0));
+  this->setJointPositions(QVector<double>(model->number_of_positions(), 0.0));
   return true;
 }
 
