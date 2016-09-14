@@ -5,7 +5,15 @@ from director.fieldcontainer import FieldContainer
 import numpy as np
 import math
 
+import pydrake.solvers.ik as drakeik
 
+# Make a numpy array of floats out of an iterable.
+def _np_float_array(input_iter):
+    return np.array([float(x) for x in input_iter])
+
+# Make a numpy array of ints out of an iterable.
+def _np_int_array(input_iter):
+    return np.array([int(x) for x in input_iter], dtype=np.int32)
 
 class ConstraintBase(FieldContainer):
 
@@ -48,12 +56,17 @@ class ConstraintBase(FieldContainer):
         return '[%s]' % '; '.join([', '.join([repr(x) for x in row]) for row in mat])
 
     @staticmethod
-    def toPositionQuaternionString(pose):
+    def toPositionQuaternion(pose):
         if isinstance(pose, vtk.vtkTransform):
             pos, quat = poseFromTransform(pose)
             pose = np.hstack((pos, quat))
         assert pose.shape == (7,)
-        return ConstraintBase.toColumnVectorString(pose)
+        return pose
+
+    @staticmethod
+    def toPositionQuaternionString(pose):
+        return ConstraintBase.toColumnVectorString(
+            ConstraintBase.toPositionQuaternion(pose))
 
     @staticmethod
     def toPosition(pos):
@@ -72,7 +85,8 @@ class ConstraintBase(FieldContainer):
     def getTSpanString(self):
         return self.toRowVectorString([self.tspan[0], self.tspan[-1]])
 
-    def getJointsString(self, joints):
+    @staticmethod
+    def getJointsString(joints):
         return '[%s]' % '; '.join(['joints.%s' % jointName for jointName in joints])
 
 
@@ -114,6 +128,31 @@ class PostureConstraint(ConstraintBase):
             '{upperLimit} = {postureName}({jointsVar}) + {upperBound};\n'
             '{varName} = {varName}.setJointLimits({jointsVar}, {lowerLimit}, {upperLimit});'
             ''.format(**formatArgs))
+
+    def getDrakeConstraint(self, model):
+        # TODO(sam.creasey) Look this up with ddDrakeModel.
+        ddmap = {
+            "base_x": 0,
+            "base_y": 1,
+            "base_z": 2,
+            "base_roll": 3,
+            "base_pitch": 4,
+            "base_yaw": 5
+            }
+        joint_idx = []
+        for name in self.joints:
+            if name in ddmap:
+                joint_idx.append(ddmap[name])
+            else:
+                joint_idx.append(
+                    model.findJoint(str(name)).get_position_start_index())
+
+        constraint = drakeik.PostureConstraint(
+            model, _np_float_array(self.tspan))
+        constraint.setJointLimits(_np_int_array(joint_idx),
+                                  _np_float_array(self.jointsLowerBound),
+                                  _np_float_array(self.jointsUpperBound))
+        return constraint
 
 
 class FixedLinkFromRobotPoseConstraint (ConstraintBase):
@@ -214,6 +253,31 @@ class PositionConstraint(ConstraintBase):
             'point_in_link_frame, ref_frame, lower_bounds, upper_bounds, {tspan});'
             ''.format(**formatArgs))
 
+    def getDrakeConstraint(self, model):
+
+        positionTarget = self.positionTarget
+        if isinstance(positionTarget, vtk.vtkTransform):
+            positionTarget = positionTarget.GetPosition()
+
+        positionOffset = self.positionOffset
+        if isinstance(positionOffset, vtk.vtkTransform):
+            positionOffset = positionOffset.GetPosition()
+
+        frame_mat = np.array([[float(self.referenceFrame.GetMatrix().GetElement(r, c))
+                               for c in xrange(4)] for r in xrange(4)])
+        target = positionTarget + positionOffset
+        lb_array = np.array(
+            [float(target[i] + x) for i, x in enumerate(self.lowerBound)])
+        ub_array = np.array(
+            [float(target[i] + x) for i, x in enumerate(self.upperBound)])
+
+        constraint = drakeik.WorldPositionInFrameConstraint(
+            model, int(model.FindBodyIndex(str(self.linkName))),
+            _np_float_array(self.pointInLink),
+            frame_mat, lb_array, ub_array,
+            _np_float_array(self.tspan))
+        return constraint
+
 
 class RelativePositionConstraint(ConstraintBase):
 
@@ -264,6 +328,21 @@ class RelativePositionConstraint(ConstraintBase):
             '{varName} = RelativePositionConstraint({robotArg}, point_in_body_a, lower_bounds, '
             'upper_bounds, links.{bodyNameA}, links.{bodyNameB}, frame_in_body_b, {tspan});'
             ''.format(**formatArgs))
+
+    def getDrakeConstraint(self, model):
+        target = (self.toPosition(self.positionTarget) +
+                  self.toPosition(self.positionOffset))
+        lb_array = np.array(
+            [float(target[i] + x) for i, x in enumerate(self.lowerBound)])
+        ub_array = np.array(
+            [float(target[i] + x) for i, x in enumerate(self.upperBound)])
+
+        return drakeik.RelativePositionConstraint(
+            model, self.toPosition(self.pointInBodyA), lb_array, ub_array,
+            int(model.FindBodyIndex(str(self.bodyNameA))),
+            int(model.FindBodyIndex(str(self.bodyNameB))),
+            self.toPositionQuaternion(self.frameInBodyB),
+            _np_float_array(self.tspan))
 
 
 class PointToPointDistanceConstraint(ConstraintBase):
@@ -344,6 +423,19 @@ class QuatConstraint(ConstraintBase):
             '{varName} = WorldQuatConstraint({robotArg}, links.{linkName}, '
             '{quat}, {tolerance}, {tspan});'
             ''.format(**formatArgs))
+
+    def getDrakeConstraint(self, model):
+        quat = self.quaternion
+        if isinstance(quat, vtk.vtkTransform):
+            _, quat = poseFromTransform(quat)
+
+        # TODO(sam.creasey) quat doesn't convert correctly if the
+        # constraint is edited in the model browser (this probably
+        # true for some other constraints as well).
+        return drakeik.WorldQuatConstraint(
+            model, int(model.FindBodyIndex(str(self.linkName))), quat,
+            math.radians(self.angleToleranceInDegrees),
+            _np_float_array(self.tspan))
 
 
 class EulerConstraint(ConstraintBase):
@@ -466,6 +558,15 @@ class WorldGazeDirConstraint(ConstraintBase):
             '{varName} = WorldGazeDirConstraint({robotArg}, links.{linkName}, {bodyAxis}, '
             '{worldAxis}, {coneThreshold}, {tspan});'
             ''.format(**formatArgs))
+
+    def getDrakeConstraint(self, model):
+        worldAxis = list(self.targetAxis)
+        self.targetFrame.TransformVector(worldAxis, worldAxis)
+
+        return drakeik.WorldGazeDirConstraint(
+            model, int(model.FindBodyIndex(str(self.linkName))),
+            _np_float_array(self.bodyAxis), _np_float_array(worldAxis),
+            self.coneThreshold, _np_float_array(self.tspan))
 
 
 class WorldGazeTargetConstraint(ConstraintBase):

@@ -48,6 +48,7 @@ set(python_files
   director/ikconstraints.py
   director/ikparameters.py
   director/ikplanner.py
+  director/ikpydrake.py
   director/ikconstraintencoder.py
   director/__init__.py
   director/ioUtils.py

@@ -129,7 +129,7 @@ def testIkPlan():
 
     def solveAndDraw(constraints):
 
-        results = ik.inverseKinSimple(robot, q_seed, q_seed, constraints, options)
+        results = ik.InverseKin(robot, q_seed, q_seed, constraints, options)
         pose = results.q_sol
         robotSystem.robotStateJointController.setPose('pose_end', pose)
 
@@ -243,5 +243,3 @@ joints_upper_limit = reach_start(joint_inds) + [0.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.
 posture_constraint_9 = posture_constraint_9.setJointLimits(joint_inds, joints_lower_limit, joints_upper_limit);
 
 '''
-
-

@@ -66,7 +66,8 @@ class ConstraintSet(object):
         if self.ikPlanner.planningMode == 'exotica':
             self.endPose, self.info = self.ikPlanner.plannerPub.processIK(self.constraints, nominalPoseName=nominalPoseName, seedPoseName=seedPoseName)
             return self.endPose, self.info
-        elif self.ikPlanner.planningMode == 'drake':
+        elif (self.ikPlanner.planningMode == 'drake' or
+              self.ikPlanner.planningMode == 'pydrake'):
             ikParameters = self.ikPlanner.mergeWithDefaultIkParameters(self.ikParameters)
 
             self.endPose, self.info = self.ikPlanner.ikServer.runIk(self.constraints, ikParameters, nominalPostureName=nominalPoseName, seedPostureName=seedPoseName)
@@ -240,7 +241,7 @@ class IKPlanner(object):
 
         self.additionalTimeSamples = 0
         self.useQuasiStaticConstraint = True
-        self.pushToMatlab = True
+        self.pushToMatlab = False
         self.planningMode = 'drake'
 
         # If the robot an arm on a fixed base, set true e.g. ABB or Kuka?
@@ -1109,6 +1110,9 @@ class IKPlanner(object):
 
         if self.planningMode == 'drake' and self.pushToMatlab:
             self.ikServer.sendPoseToServer(pose, poseName)
+        elif self.planningMode == 'pydrake':
+            # Don't do anything in this case.
+            pass
         elif self.planningMode == 'exotica':
             self.plannerPub.processAddPose(pose, poseName)
 
@@ -1451,14 +1455,25 @@ class IKPlanner(object):
         elif self.planningMode == 'drake':
             ikParameters = self.mergeWithDefaultIkParameters(ikParameters)
             listener = self.getManipPlanListener()
-            info = self.ikServer.runIkTraj(constraints, poseStart=poseStart, poseEnd=poseEnd, nominalPose=nominalPoseName, ikParameters=ikParameters, timeSamples=timeSamples, additionalTimeSamples=self.additionalTimeSamples,
-                                           graspToHandLinkFrame=self.newGraspToHandFrame(ikParameters.rrtHand))
+            info = self.ikServer.runIkTraj(
+                constraints, poseStart=poseStart, poseEnd=poseEnd,
+                nominalPose=nominalPoseName, ikParameters=ikParameters,
+                timeSamples=timeSamples,
+                additionalTimeSamples=self.additionalTimeSamples,
+                graspToHandLinkFrame=self.newGraspToHandFrame(ikParameters.rrtHand))
             self.lastManipPlan = listener.waitForResponse(timeout=12000)
             listener.finish()
+        elif self.planningMode == 'pydrake':
+            ikParameters = self.mergeWithDefaultIkParameters(ikParameters)
+            self.lastManipPlan, info = self.ikServer.runIkTraj(
+                constraints, poseStart=poseStart, poseEnd=poseEnd,
+                nominalPose=nominalPoseName, ikParameters=ikParameters,
+                timeSamples=timeSamples,
+                additionalTimeSamples=self.additionalTimeSamples,
+                graspToHandLinkFrame=self.newGraspToHandFrame(ikParameters.rrtHand))
 
         print 'traj info:', info
         return self.lastManipPlan
-
 
     def computePostureCost(self, pose):
 

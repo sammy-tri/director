@@ -2,7 +2,6 @@ from director import applogic
 from director import vtkAll as vtk
 from director import callbacks
 from director.fieldcontainer import FieldContainer
-from director import ik
 from director import ikplanner
 from director import objectmodel as om
 from director import robotstate
@@ -33,6 +32,7 @@ class RobotSystem(object):
              useAffordance=True,
              useAtlasDriver=True,
              useExotica=True,
+             usePyDrake=False,
              useHands=True):
 
         view = view or applogic.getCurrentRenderView()
@@ -110,17 +110,40 @@ class RobotSystem(object):
             ikJointController.addPose('q_end', ikJointController.getPose('q_nom'))
             ikJointController.addPose('q_start', ikJointController.getPose('q_nom'))
 
+            if usePyDrake:
+                from director import ikpydrake
+                if 'leftFootLink' in directorConfig:
+                    ikServer = ikpydrake.IKPyDrake(
+                        directorConfig['urdfConfig']['ik'],
+                        ikJointController,
+                        directorConfig['fixedPointFile'],
+                        directorConfig['leftFootLink'],
+                        directorConfig['rightFootLink'],
+                        directorConfig['pelvisLink'])
+                else: # assume that robot has no feet e.g. fixed base arm
+                    ikServer = ikpydrake.IKPyDrake(
+                        directorConfig['urdfConfig']['ik'],
+                        ikJointController,
+                        directorConfig['fixedPointFile'], '', '', '')
+            else:
+                from director import ik
+                if 'leftFootLink' in directorConfig:
+                    ikServer = ik.AsyncIKCommunicator(
+                        directorConfig['urdfConfig']['ik'],
+                        directorConfig['fixedPointFile'],
+                        directorConfig['leftFootLink'],
+                        directorConfig['rightFootLink'],
+                        directorConfig['pelvisLink'])
+                else: # assume that robot has no feet e.g. fixed base arm
+                    ikServer = ik.AsyncIKCommunicator(
+                        directorConfig['urdfConfig']['ik'],
+                        directorConfig['fixedPointFile'], '', '', '')
 
-            if 'leftFootLink' in directorConfig:
-                ikServer = ik.AsyncIKCommunicator(directorConfig['urdfConfig']['ik'], directorConfig['fixedPointFile'], directorConfig['leftFootLink'], directorConfig['rightFootLink'], directorConfig['pelvisLink'])
-            else: # assume that robot has no feet e.g. fixed base arm
-                ikServer = ik.AsyncIKCommunicator(directorConfig['urdfConfig']['ik'], directorConfig['fixedPointFile'], '', '', '')
+                def startIkServer():
+                    ikServer.startServerAsync()
+                    ikServer.comm.writeCommandsToLogFile = True
 
-            def startIkServer():
-                ikServer.startServerAsync()
-                ikServer.comm.writeCommandsToLogFile = True
-
-            #startIkServer()
+                #startIkServer()
 
             playbackRobotModel, playbackJointController = roboturdf.loadRobotModel('playback model', view, urdfFile=directorConfig['urdfConfig']['playback'], parent='planning', color=roboturdf.getRobotOrangeColor(), visible=False, colorMode=colorMode)
             teleopRobotModel, teleopJointController = roboturdf.loadRobotModel('teleop model', view, urdfFile=directorConfig['urdfConfig']['teleop'], parent='planning', color=roboturdf.getRobotBlueColor(), visible=False, colorMode=colorMode)
@@ -141,6 +164,8 @@ class RobotSystem(object):
                     handModels.append(handFactory.getLoader(side))
 
             ikPlanner = ikplanner.IKPlanner(ikServer, ikRobotModel, ikJointController, handModels)
+            if usePyDrake:
+                ikPlanner.planningMode = "pydrake"
 
             manipPlanner = robotplanlistener.ManipulationPlanDriver(ikPlanner)
 
