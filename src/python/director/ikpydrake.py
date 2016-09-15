@@ -175,9 +175,9 @@ class IKPyDrake():
             state.joint_effort = [0.] * len(q_sol)
             plan.plan.append(state)
             if ikParameters.usePointwise:
-                plan.plan_info.append(results.info[0])
-            else:
                 plan.plan_info.append(results.info[idx])
+            else:
+                plan.plan_info.append(results.info[0])
 
         for idx in xrange(plan.num_states):
             print "utime at ", idx, plan.plan[idx].utime
