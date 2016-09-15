@@ -303,6 +303,8 @@ def getBuiltinPackagePaths():
                   ]
 
     baseDir = getDRCBaseDir()
+    if baseDir is None:
+        return list()
     return [os.path.join(baseDir, path) for path in searchPaths]
 
 
@@ -425,8 +427,14 @@ class HandLoader(object):
         self.palmToHandLink = self.handLinkToPalm.GetLinearInverse()
 
     def getHandUrdf(self):
-        urdfBase = os.path.join(getDRCBaseDir(), 'software/models/common_components')
-        return os.path.join(urdfBase, 'hand_factory', self.handUrdf)
+        base_dir = getDRCBaseDir()
+        if base_dir is not None:
+            urdfBase = os.path.join(getDRCBaseDir(), 'software/models/common_components')
+            return os.path.join(urdfBase, 'hand_factory', self.handUrdf)
+        else:
+            return os.path.join(
+                drcargs.DirectorConfig.getDefaultInstance().dirname,
+                self.handUrdf)
 
     @staticmethod
     def getLinkToLinkTransform(model, linkA, linkB):

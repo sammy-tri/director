@@ -289,18 +289,19 @@ def setupViewManager():
     tabBar.connect('customContextMenuRequested(const QPoint &)', onTabWidgetContextMenu)
 
 
-def startup(globals):
+def startup(globals, requireDrcBase=True):
 
     global _mainWindow
     _mainWindow = globals['_mainWindow']
 
-    if 'DRC_BASE' not in os.environ:
-        showErrorMessage('DRC_BASE environment variable is not set')
-        return
+    if requireDrcBase:
+        if 'DRC_BASE' not in os.environ:
+            showErrorMessage('DRC_BASE environment variable is not set')
+            return
 
-    if not os.path.isdir(getDRCBase()):
-        showErrorMessage('DRC_BASE directory does not exist: ' + getDRCBase())
-        return
+        if not os.path.isdir(getDRCBase()):
+            showErrorMessage('DRC_BASE directory does not exist: ' + getDRCBase())
+            return
 
     _mainWindow.connect('resetCamera()', resetCamera)
     _mainWindow.connect('toggleStereoRender()', toggleStereoRender)

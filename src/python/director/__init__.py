@@ -12,7 +12,10 @@ def _initCoverage():
 
 
 def getDRCBaseDir():
-    return os.environ['DRC_BASE']
+    if 'DRC_BASE' in os.environ:
+        return os.environ['DRC_BASE']
+    else:
+        return None
 
 
 def updateSysPath(path):
