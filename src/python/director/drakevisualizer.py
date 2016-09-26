@@ -515,7 +515,7 @@ class DrakeVisualizerApp():
         self.cameraBookmarksPanel = camerabookmarks.CameraBookmarkWidget(self.view)
         self.cameraBookmarksDock = self.addWidgetToDock(self.cameraBookmarksPanel.widget, QtCore.Qt.RightDockWidgetArea, visible=False)
 
-        self.cameraControlPanel = cameracontrolpanel.CameraControlPanel(self.view)
+        self.cameraControlPanel = cameracontrolpanel.CameraControlPanel(self.view, None)
         self.cameraControlDock = self.addWidgetToDock(self.cameraControlPanel.widget, QtCore.Qt.RightDockWidgetArea, visible=False)
 
         act = self.fileMenu.addAction('&Quit')
