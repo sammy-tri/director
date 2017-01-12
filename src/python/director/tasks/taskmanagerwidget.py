@@ -1,6 +1,13 @@
-from director.tasks.robottasks import *
+import pickle
+import re
+
+from director import callbacks
+import director.objectmodel as om
 from director.tasks.descriptions import loadTaskDescription
 import director.applogic as app
+
+import PythonQt
+from PythonQt import QtGui
 
 def _splitCamelCase(name):
     name = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', name)
@@ -441,4 +448,3 @@ def init():
     dock = app.addWidgetToDock(panel.taskLibraryWidget.widget)
     dock.hide()
     return panel
-
