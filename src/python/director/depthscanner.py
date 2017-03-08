@@ -48,7 +48,7 @@ class DepthScanner(object):
         self.windowToColorBuffer.SetInputBufferTypeToRGB()
         self.windowToColorBuffer.ShouldRerenderOff()
 
-        useBackBuffer = False
+        useBackBuffer = True
         if useBackBuffer:
             self.windowToDepthBuffer.ReadFrontBufferOff()
             self.windowToColorBuffer.ReadFrontBufferOff()

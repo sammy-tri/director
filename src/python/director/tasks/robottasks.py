@@ -200,16 +200,38 @@ class CheckPlanInfo(UserPromptTask):
             return UserPromptTask.run(self)
 
 
+class RobotStateTimer(SimpleTimer):
+
+    def __init__(self, jointController):
+        self.jointController = jointController
+        SimpleTimer.__init__(self, timeFunction=self.getRobotStateTime)
+
+    def getRobotStateTime(self):
+        '''Returns time in seconds from the last robot state message utime field.
+        If no message exists, returns 0.0.
+        '''
+        msg = self.jointController.lastRobotStateMessage
+        return msg.utime*1e-6 if msg is not None else 0.0
+
+
 class DelayTask(AsyncTask):
 
     @staticmethod
     def getDefaultProperties(properties):
         properties.addProperty('Delay time', 1.0, attributes=propertyset.PropertyAttributes(minimum=0.0, maximum=1e4, singleStep=0.1))
 
+
+    def makeWallClockTimer(self):
+        return SimpleTimer()
+
+    def makeRobotStateTimer(self):
+        return RobotStateTimer(robotSystem.robotStateJointController)
+
     def run(self):
 
         delayTime = self.properties.getProperty('Delay time')
-        t = SimpleTimer()
+        #t = self.makeWallClockTimer()
+        t = self.makeRobotStateTimer()
 
         while True:
 

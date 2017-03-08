@@ -133,7 +133,6 @@ class TaskTree(object):
             task = task.copy()
 
         obj = TaskItem(task)
-        parent = parent or self.getSelectedFolder()
         self.objectModel.addToObjectModel(obj, parentObj=parent)
         self.assureSelection()
         return obj
