@@ -557,12 +557,14 @@ class PyDrakeIkServer(object):
             assert len(results.q_sol) == len(pointwiseTimeSamples)
 
             poses = []
+            info = []
             for i in xrange(len(results.q_sol)):
                 q = results.q_sol[i]
                 q.shape = q.shape[0]
                 poses.append(q)
+                info.append(results.info[i])
 
-            info = results.info[0]
+            info = max(info)
             timeSamples = pointwiseTimeSamples
 
 
