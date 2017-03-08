@@ -609,7 +609,7 @@ useWarpTime = True
 minPlanTime = 1.5
 acceleration_param=4
 t_acc=0.05
-t_dec=0.2
+t_dec=0.08
 numPointwiseSamples = 20
 
 
