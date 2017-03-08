@@ -11,6 +11,7 @@ from director.simpletimer import SimpleTimer
 from director.utime import getUtime
 from director import robotstate
 
+import copy
 import pickle
 import scipy.interpolate
 
@@ -72,6 +73,32 @@ class PlanPlayback(object):
         endTime = msg.plan[-1].utime
         return (endTime - startTime) / 1e6
 
+    @staticmethod
+    def mergePlanMessages(plans):
+
+        msg = copy.deepcopy(plans[0])
+
+        for plan in plans[1:]:
+            plan = copy.deepcopy(plan)
+
+            lastTime = msg.plan[-1].utime
+            for state in plan.plan:
+                state.utime += lastTime
+
+            msg.plan_info += plan.plan_info
+            msg.plan += plan.plan
+
+        msg.num_states = len(msg.plan)
+        return msg
+
+    @staticmethod
+    def isPlanInfoFeasible(info):
+        return 0 <= info < 10
+
+    @staticmethod
+    def isPlanFeasible(plan):
+        plan = asRobotPlan(plan)
+        return plan is not None and (max(plan.plan_info) < 10 and min(plan.plan_info) >= 0)
 
     def stopAnimation(self):
         if self.animationTimer:
