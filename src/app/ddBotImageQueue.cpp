@@ -715,7 +715,7 @@ void ddBotImageQueue::getPointCloudFromImages(const QString& channel, vtkPolyDat
     pcl::PassThrough<pcl::PointXYZRGB> pass;
     pass.setInputCloud (cloud);
     pass.setFilterFieldName ("z");
-    pass.setFilterLimits (0.0, rangeThreshold);
+    pass.setFilterLimits (0.001, rangeThreshold);
     pass.filter(*cloud);
   }
 
