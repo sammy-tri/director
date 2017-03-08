@@ -284,13 +284,22 @@ class PyDrakeIkServer(object):
 
         return options
 
+    def getTspanRange(self, c):
+        '''Constraint tspan fields may contain more than two
+        time points.  The extra time points in a constraint
+        tspan array are used for convenience to define additional
+        knot points for the ik traj solve.  This function returns
+        just the start and end times of the tspan array.
+        '''
+        return np.array([c.tspan[0], c.tspan[-1]], dtype=float)
+
     def handleFixedLinkFromRobotPoseConstraint(self, c, fields):
 
         bodyId = self.bodyNameToId[c.linkName]
         pose = np.asarray(fields.poses[c.poseName], dtype=float)
         pointInBodyFrame = np.zeros(3)
         tolerance = np.radians(c.angleToleranceInDegrees)
-        tspan = np.asarray(c.tspan, dtype=float)
+        tspan = self.getTspanRange(c)
 
         bodyToWorld = self.computeBodyToWorld(pose, c.linkName, pointInBodyFrame)
         bodyPos = transformUtils.transformations.translation_from_matrix(bodyToWorld)
@@ -311,7 +320,7 @@ class PyDrakeIkServer(object):
         referenceFrame = transformUtils.getNumpyFromTransform(c.referenceFrame)
         lowerBound = np.asarray(c.positionTarget, dtype=float) + c.lowerBound
         upperBound = np.asarray(c.positionTarget, dtype=float) + c.upperBound
-        tspan = np.asarray(c.tspan, dtype=float)
+        tspan = self.getTspanRange(c)
 
         pc = pydrakeik.WorldPositionInFrameConstraint(self.rigidBodyTree, bodyId, pointInBodyFrame, referenceFrame, lowerBound, upperBound, tspan)
 
@@ -321,7 +330,7 @@ class PyDrakeIkServer(object):
 
         bodyId = self.bodyNameToId[c.linkName]
         tolerance = np.radians(c.angleToleranceInDegrees)
-        tspan = np.asarray(c.tspan, dtype=float)
+        tspan = self.getTspanRange(c)
 
         if isinstance(c.quaternion, vtk.vtkTransform):
             quat = transformUtils.getNumpyFromTransform(c.quaternion)
@@ -336,7 +345,7 @@ class PyDrakeIkServer(object):
     def handleWorldGazeDirConstraint(self, c, fields):
 
         bodyId = self.bodyNameToId[c.linkName]
-        tspan = np.asarray(c.tspan, dtype=float)
+        tspan = self.getTspanRange(c)
         worldAxis = np.asarray(c.targetAxis, dtype=float)
         bodyAxis = np.asarray(c.bodyAxis, dtype=float)
         coneThreshold = c.coneThreshold
@@ -348,7 +357,7 @@ class PyDrakeIkServer(object):
 
     def handlePostureConstraint(self, c, fields):
 
-        tspan = np.asarray(c.tspan, dtype=float)
+        tspan = self.getTspanRange(c)
 
         pose = np.asarray(fields.poses[c.postureName], dtype=float)
         positionInds = np.array([self.positionNameToId[name] for name in c.joints], dtype=np.int32)
@@ -366,7 +375,7 @@ class PyDrakeIkServer(object):
         # shrinkFactor should not be a class member but an instance member
         c.shrinkFactor = fields.options.quasiStaticShrinkFactor
 
-        tspan = np.asarray(c.tspan, dtype=float)
+        tspan = self.getTspanRange(c)
         shrinkFactor = c.shrinkFactor
         active = c.leftFootEnabled or c.rightFootEnabled
         leftFootBodyId = self.bodyNameToId[c.leftFootLinkName]
