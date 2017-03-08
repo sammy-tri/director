@@ -248,8 +248,12 @@ class PyDrakeIkServer(object):
 
         options = pydrakeik.IKoptions(self.rigidBodyTree)
         options.setQ(np.diag(fields.positionCosts))
-        #options.setQv()
-        #options.setQa()
+
+
+        velCost = np.array(fields.positionCosts)*0.05
+        accelCost = np.array(fields.positionCosts)*0.05
+        options.setQv(np.diag(velCost))
+        options.setQa(np.diag(velCost))
         #options.setDebug(True)
 
         options.setMajorOptimalityTolerance(fields.options.majorOptimalityTolerance)
@@ -261,7 +265,7 @@ class PyDrakeIkServer(object):
 
         # for ik pointwise, whether to use q_seed at each point (False),
         # or to use the solution from the previous point (True)
-        #options.setSequentialSeedFlag(True)
+        options.setSequentialSeedFlag(False)
 
         # for ik traj, if initial state is not fixed
         # then here you can set the lb/ub of initial q
@@ -270,8 +274,9 @@ class PyDrakeIkServer(object):
 
         # for ik traj, set lower and upper bound of
         # initial and final velocity
-        #options.setqd0(lb, ub)
-        #options.setqdf(lb, ub)
+        zeros = np.zeros(len(fields.positionCosts))
+        options.setqd0(zeros, zeros)
+        options.setqdf(zeros, zeros)
 
         # for ik traj, additional time samples in addition to knot points
         # to check constraints
