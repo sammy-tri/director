@@ -627,12 +627,12 @@ class CameraImageView(object):
 
     def initImageColorMap(self):
 
-        self.depthImageColorByRange = self.getImage().GetScalarRange()
+        scalarRange = self.getImage().GetScalarRange()
 
         lut = vtk.vtkLookupTable()
         lut.SetNumberOfColors(256)
         lut.SetHueRange(0, 0.667) # red to blue
-        lut.SetRange(self.depthImageColorByRange) # map red (near) to blue (far)
+        lut.SetRange(scalarRange)
         lut.SetRampToLinear()
         lut.Build()
 
@@ -640,7 +640,6 @@ class CameraImageView(object):
         im.SetLookupTable(lut)
         im.SetInput(self.getImage())
         im.Update()
-        self.depthImageLookupTable = lut
         self.imageMapToColors = im
         self.imageActor.SetInput(im.GetOutput())
 
@@ -651,6 +650,10 @@ class CameraImageView(object):
 
         currentUtime = self.imageManager.updateImage(self.imageName)
         if currentUtime != self.updateUtime:
+
+            if self.useImageColorMap and self.imageInitialized:
+                self.imageMapToColors.GetLookupTable().SetRange(self.getImage().GetScalarRange())
+
             self.updateUtime = currentUtime
             self.view.render()
 
