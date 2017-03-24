@@ -44,35 +44,6 @@ class FootstepPlanItem(om.ObjectModelItem):
 class WalkingPlanItem(om.ObjectModelItem):
     pass
 
-
-class CheckPlanInfo(UserPromptTask):
-
-    @staticmethod
-    def getDefaultProperties(properties):
-        UserPromptTask.getDefaultProperties(properties)
-        properties.setProperty('Message', 'Plan is invalid. Do you want to accept it anyway?')
-
-    def run(self):
-        if robotSystem.ikPlanner.lastManipPlan and max(robotSystem.ikPlanner.lastManipPlan.plan_info) <= 10 and min(robotSystem.ikPlanner.lastManipPlan.plan_info) >= 0:
-            return
-        else:
-            return UserPromptTask.run(self)
-
-
-class RobotStateTimer(SimpleTimer):
-
-    def __init__(self, jointController):
-        self.jointController = jointController
-        SimpleTimer.__init__(self, timeFunction=self.getRobotStateTime)
-
-    def getRobotStateTime(self):
-        '''Returns time in seconds from the last robot state message utime field.
-        If no message exists, returns 0.0.
-        '''
-        msg = self.jointController.lastRobotStateMessage
-        return msg.utime*1e-6 if msg is not None else 0.0
-
-
 class WaitForMultisenseLidar(AsyncTask):
 
     @staticmethod

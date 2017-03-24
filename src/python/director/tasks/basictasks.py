@@ -9,6 +9,9 @@ from director.simpletimer import SimpleTimer
 from PythonQt import QtCore
 from PythonQt import QtGui
 
+robotSystem = None
+
+
 def _splitCamelCase(name):
     name = re.sub('(.)([A-Z][a-z]+)', r'\1 \2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1 \2', name)
@@ -147,6 +150,19 @@ class UserPromptTask(AsyncTask):
         if not self.result:
             raise atq.AsyncTaskQueue.PauseException()
 
+class RobotStateTimer(SimpleTimer):
+
+    def __init__(self, jointController):
+        self.jointController = jointController
+        SimpleTimer.__init__(self, timeFunction=self.getRobotStateTime)
+
+    def getRobotStateTime(self):
+        '''Returns time in seconds from the last robot state message utime field.
+        If no message exists, returns 0.0.
+        '''
+        msg = self.jointController.lastRobotStateMessage
+        return msg.utime*1e-6 if msg is not None else 0.0
+
 
 class DelayTask(AsyncTask):
 
@@ -186,3 +202,18 @@ class QuitTask(AsyncTask):
 
     def run(self):
         QtCore.QCoreApplication.instance().quit()
+
+class CheckPlanInfo(UserPromptTask):
+
+    @staticmethod
+    def getDefaultProperties(properties):
+        UserPromptTask.getDefaultProperties(properties)
+        properties.setProperty('Message', 'Plan is invalid. Do you want to accept it anyway?')
+
+    def run(self):
+        if robotSystem.ikPlanner.lastManipPlan and max(robotSystem.ikPlanner.lastManipPlan.plan_info) <= 10 and min(robotSystem.ikPlanner.lastManipPlan.plan_info) >= 0:
+            return
+        else:
+            return UserPromptTask.run(self)
+
+
