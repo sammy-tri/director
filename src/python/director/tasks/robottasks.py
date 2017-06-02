@@ -16,7 +16,8 @@ from director.debugVis import DebugData
 from director import vtkAll as vtk
 from director import lcmUtils
 from director.tasks.basictasks import (AsyncTask, PrintTask, CallbackTask,
-                                       ExceptionTask, UserPromptTask)
+                                       CheckPlanInfo,
+                                       DelayTask, ExceptionTask, UserPromptTask)
 import numpy as np
 import copy
 
